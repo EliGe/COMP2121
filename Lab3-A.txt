@@ -1,0 +1,24 @@
+/*
+ * partA.asm
+ *
+ *  Created: 5/04/2017 7:16:50 PM
+ *   Author: James Lin
+ */ 
+
+.include "m2560def.inc"
+
+.equ PATTERN = 0xE5 ;Set pattern of LEDS (1110 0101)
+.def temp = r16
+.def output = r17
+	 
+;Note
+;LED{2~9} = PortC {0~7}
+;LED{0,1} = PortG {2,3}
+main:
+	ser temp;255 (11111111)
+	out DDRC, temp; Set Port C as output
+	ldi output, PATTERN
+	out PORTC, output; Write the pattern
+end:
+	rjmp end
+		
