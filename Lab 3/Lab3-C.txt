@@ -1,0 +1,205 @@
+/*
+ * partC.asm
+ *
+ *  Created: 5/04/2017 7:17:10 PM
+ *   Author: James Lin
+ */ 
+
+;Task - Use PB0 (0) and PB1 (1) inputs.
+;	  - After 8 inputs, display in LEDs (Three 1 second flashes)
+;	  - Reset
+;	  - (Possible to enter a new pattern while old one is displaying)
+;     - Debouncing (preventing more than 1 input while the button is pressed)
+
+.include "m2560def.inc"
+
+.equ maxInput = 8
+.equ maxFlash = 3
+
+.def temp = r16
+.def numInput = r17		   ;Number of Inputs from PB0 and PB1
+.def patternToShow = r18   ;Output Pattern (8 bits)
+.def numFlash = r19		   ;Number of flashes
+.def isDisplay = r20	   ;1 for if LEDS are flashing, 0 for if LEDS are not flashing
+.def debounced = r21	   ;1 for button is pressed, 0 otherwise
+.def patternToInput	= r22  ;To input new values in
+
+.macro clear			   ;Clear memory (word size) in data
+	ldi YL, low(@0)
+	ldi YH, high(@0)
+	clr temp
+	st Y+, temp
+	st Y, temp
+.endmacro
+
+.dseg 
+SecondCounter:		 ;To count the number of seconds
+	.byte 2
+TempCounter:		 ;To count whether a second has passed
+	.byte 2
+
+.cseg
+	jmp RESET		;0x0000
+.org INT0addr		;address of external interrupt 0 (for PB0)
+	jmp EXT_INT0
+.org INT1addr		;address of external interrupt 1 (for PB1)
+	jmp EXT_INT1
+.org OVF0addr		;Timer overflow address
+	jmp Timer0OVF
+
+RESET:
+	ldi temp, low(RAMEND)		; initialise the stack 
+	out SPL, temp
+	ldi temp, high(RAMEND) 
+	out SPH, temp
+
+	clr temp					; Reset variables
+	clr numInput
+	clr patternToShow
+	clr numFlash
+	clr isDisplay
+	clr debounced
+	clr patternToInput
+
+	ser temp						  ;Set-up inputs/outputs
+	out DDRC, temp					  ;Enable Port C output
+
+	ldi temp, (1<<ISC11) | (1<<ISC01) ;Set INT0 & INT1 falling edge (1 0)
+	sts EICRA, temp					  ;Set EICRA
+	in temp, EIMSK				
+	ori temp, (1<<INT0) | (1<<INT1)	  ; Enable INT0 and INT1 in temp
+	out EIMSK, temp					  ; write it back to EIMSK
+
+	ldi temp, 0b00000010			  ; Prescale - 8 -> TCCR0B (Timer/counter control)
+	out TCCR0B, temp				  ; So 128microseconds per interrupt, 7812 interrupts per second
+	ldi temp, 1<<TOIE0				  ; turns overflow interrupt bit on
+	sts TIMSK0, temp
+	sei								  ;Enable Global Interrupt 
+
+	rjmp main
+
+EXT_INT0:					 ;External Interrupt: Input '0' into pattern
+	cpi debounced, 0			 ;Check if a button is pressed
+	breq input0				 ;Return if debounced != 0
+	reti
+
+	input0:					 ;Add 0 to pattern
+		inc debounced		 ;Set debounced
+
+		push temp
+		in temp, SREG
+		push temp
+		ldi temp, 0b10000000
+		out PORTC, temp
+
+		lsl patternToInput	 ;Shift pattern 1 unit left (adds a '0' to bit 0)
+
+		pop temp
+		out SREG, temp
+		pop temp
+
+		inc numInput		 ;Increment number of input
+		cpi numInput, maxInput
+		breq newInput0		
+		reti
+
+		newInput0:			 ;Make new pattern, clear variables
+			mov patternToShow, patternToInput
+			clr patternToInput
+			clr numInput
+			clr numFlash
+			reti
+			
+EXT_INT1:					  ;External Interrupt: Input '1' into pattern
+	cpi debounced, 0
+	breq input1
+	reti
+
+	input1:
+		inc debounced
+
+		push temp
+		in temp, SREG
+		push temp
+
+		ldi temp, 0b01000000
+		out PORTC, temp
+
+		lsl patternToInput
+		ori patternToInput, 0b00000001 ;Puts '1' to bit 0
+		inc numInput
+
+		pop temp
+		out SREG, temp
+		pop temp
+
+		cpi numInput, maxInput
+		breq newInput1
+		reti
+
+		newInput1:
+			mov patternToShow, patternToInput
+			clr patternToInput
+			clr numInput
+			clr numFlash
+			reti
+
+Timer0OVF:;Timer interrupt: Activates 7812 times per second
+	prologue:
+		in temp, SREG  ;State of registers
+		push temp
+		push r24
+		push r25
+
+	body: 
+	;First, check if a second has passed
+		lds r24, TempCounter		;low
+		lds r25, TempCounter + 1	;high
+		adiw r25: r24, 1
+		cpi r24, low(7812)			;Check if a second has passed
+		ldi temp, high(7812)
+		cpc r25, temp
+		brne NOT_SECOND
+		clr debounced
+
+		CHECK_PATTERN:				;Check if there is pattern to display
+			cpi numFlash, maxFlash
+			breq CLEAR_PATTERN
+			cpi isDisplay, 0
+			brne CLEAR_PATTERN
+			;Show pattern if not displaying anything and there is sth to display, and numFlash < 3
+			SHOW_PATTERN:		;Shows Display for 1 second
+				out PORTC, patternToShow
+				inc numFlash
+				ldi isDisplay, 1
+				rjmp RESET_COUNTER
+			CLEAR_PATTERN:		;Clears Display
+				out PORTC, r0
+				clr isDisplay
+
+		RESET_COUNTER:
+			clear TempCounter
+			lds r24, SecondCounter
+			lds r25, SecondCounter + 1
+			adiw r25:r24, 1
+			sts SecondCounter, r24
+			sts SecondCounter + 1, r25
+			rjmp epilogue
+
+	NOT_SECOND:					;Increment TempCounter and store back to memory
+		sts TempCounter, r24
+		sts TempCounter + 1, r25
+
+	epilogue:
+		pop r25
+		pop r24
+		pop temp
+		out SREG, temp
+		reti
+
+main:
+	clear SecondCounter	;Reset second Counter
+	clear TempCounter	;Reset temp Counter
+
+end:
+	rjmp end

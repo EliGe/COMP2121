@@ -1,0 +1,256 @@
+;Part D
+;-32 Patterns stored up
+;-After MORE THAN 3 patterns, it is played at double speed
+;-If both buttons pressed together, stop displaying and clear queue
+
+.include "m2560def.inc"
+
+.equ maxInput = 8
+.equ maxFlash = 3
+.equ maxPattern = 32
+
+.def isPressed0 = r13
+.def isPressed1 = r14
+.def temp = r16
+.def numInput = r17
+.def numFlash = r18
+.def isDisplay = r19
+.def debounced = r20
+.def patternToInput = r21
+.def patternToShow = r22
+.def numPattern = r23
+
+.macro clear			   ;Clear memory (word size) in data
+	ldi YL, low(@0)
+	ldi YH, high(@0)
+	clr temp
+	st Y+, temp
+	st Y, temp
+.endmacro
+
+.dseg 
+TempCounter:		 ;To count the number of interrupts
+	.byte 2
+DebouncedCounter:
+	.byte 2
+Pattern:
+	.byte 32
+
+.cseg
+	jmp RESET		;0x0000
+.org INT0addr		;address of external interrupt 0 (for PB0)
+	jmp EXT_INT0
+.org INT1addr		;address of external interrupt 1 (for PB1)
+	jmp EXT_INT1
+.org OVF0addr		;Timer overflow address
+	jmp Timer0OVF
+
+RESET:
+	ldi temp, low(RAMEND)		; initialise the stack 
+	out SPL, temp
+	ldi temp, high(RAMEND) 
+	out SPH, temp
+
+	ldi xl, low(Pattern)		;To input patternToInput
+	ldi xh, high(Pattern)
+	ldi zl, low(Pattern)		;To output patternToShow
+	ldi zh, high(Pattern)
+
+	clr isPressed0				;Reset variables
+	clr isPressed1
+	clr temp
+	clr numInput
+	clr numFlash
+	clr isDisplay
+	clr debounced
+	clr patternToInput
+	clr patternToShow
+	clr debounced
+	clr numPattern
+
+	ser temp						  ;Set-up inputs/outputs
+	out DDRC, temp					  ;Enable Port C output
+
+	ldi temp, (1<<ISC11) | (1<<ISC01) ;Set INT0 & INT1 falling edge (1 0)
+	sts EICRA, temp					  ;Set EICRA
+	in temp, EIMSK				
+	ori temp, (1<<INT0) | (1<<INT1)	  ; Enable INT0 and INT1 in temp
+	out EIMSK, temp					  ; write it back to EIMSK
+
+	ldi temp, 0b00000010			  ; Prescale - 8 -> TCCR0B (Timer/counter control)
+	out TCCR0B, temp				  ; So 128microseconds per interrupt, 7812 interrupts per second
+	ldi temp, 1<<TOIE0				  ; turns overflow interrupt bit on
+	sts TIMSK0, temp
+	sei								  ;Enable Global Interrupt 
+
+	rjmp main
+
+EXT_INT0:
+	mov temp, isPressed1
+	cpi temp, 1
+	breq multiButton
+
+	cpi debounced, 0
+	breq input0
+	reti
+
+	input0:
+		inc isPressed0
+		ldi debounced, 1
+
+		push temp			;Display 0b10000000 when PB0 is pressed
+		in temp, SREG
+		push temp
+		ldi temp, 0b10000000
+		out PORTC, temp
+		pop temp
+		out SREG, temp
+		pop temp
+
+		lsl patternToInput	;Shift pattern
+		inc numInput
+		cpi numInput, maxInput
+		breq resetPattern
+		reti
+EXT_INT1:
+	mov temp, isPressed0
+	cpi temp, 1
+	breq multiButton
+
+	cpi debounced, 0
+	breq input1
+	reti
+	
+	input1:
+		inc isPressed1
+		ldi debounced, 1
+
+		push temp			;Display 0b01000000 when PB0 is pressed
+		in temp, SREG
+		push temp
+		ldi temp, 0b01000000
+		out PORTC, temp
+		pop temp
+		out SREG, temp
+		pop temp
+
+		lsl patternToInput
+		ori patternToInput, 0b00000001 ;Puts '1' to bit 0
+		inc numInput
+		cpi numInput, maxInput
+		breq resetPattern
+		reti
+
+resetPattern:				;Stores pattern into a 32 byte queue
+	st x+, patternToInput
+	inc numPattern
+	clr numInput
+	reti
+
+multiButton:
+	jmp RESET
+
+Timer0OVF:
+	prologue:
+		in temp, SREG
+		push temp
+		push r24
+		push r25
+
+	checkDebounced:
+		lds r24, DebouncedCounter
+		lds r25, DebouncedCounter + 1
+		adiw r25:r24, 1
+		cpi r24, low(781)
+		ldi temp, high(781)
+		cpc r25, temp
+		breq clearDebounced
+		rjmp notDebounced
+		
+		clearDebounced:;debounced
+			clr debounced
+			clear DebouncedCounter
+
+			clr isPressed0
+			clr isPressed1
+
+			rjmp checkCounter
+		notDebounced:
+			sts DebouncedCounter, r24
+			sts DebouncedCounter + 1, r25
+
+	checkCounter:
+		lds r24, TempCounter
+		lds r25, TempCounter + 1
+		adiw r25:r24, 1
+
+		checkNumPattern:
+			cpi numPattern, 4
+			brsh checkHalfSecond
+			rjmp checkFullSecond
+
+			checkHalfSecond:
+				cpi r24, low(3906)
+				ldi temp, high(3906)
+				cpc r25, temp
+				brne notFinishTime
+				rjmp checkDisplay
+				
+			checkFullSecond:
+				cpi r24, low(7812)
+				ldi temp, high(7812)
+				cpc r25, temp
+				brne notFinishTime
+				rjmp checkDisplay
+
+				checkDisplay:
+					cpi numPattern, 0
+					breq clearDisplay ;If no patterns to run
+					cpi numFlash, maxFlash
+					breq clearDisplay
+					cpi isDisplay, 0
+					brne clearDisplay
+
+					showDisplay:		;Show LED
+						ld patternToShow, z
+						out PORTC, patternToShow
+						ldi isDisplay, 1
+						inc numFlash
+						rjmp finishTime
+
+					clearDisplay:		;Clear LED
+						out PORTC, r0
+						clr isDisplay
+						cpi numFlash, maxFlash
+						breq finishDisplay
+						rjmp finishTime
+
+						finishDisplay:	;Stop displaying the pattern
+							clr numFlash
+							dec numPattern
+							adiw z, 1
+			
+			finishTime:					;Increment half-second;reset tempcounter
+				clear TempCounter
+				rjmp epilogue
+
+	notFinishTime:						;Increment tempcounter
+		lds r24, TempCounter
+		lds r25, TempCounter + 1
+		adiw r25:r24, 1
+		sts TempCounter, r24
+		sts TempCounter + 1, r25
+		rjmp epilogue
+
+	epilogue:
+		pop r25
+		pop r24
+		pop temp
+		out SREG, temp
+		reti
+
+main:
+	clear TempCounter
+	clear DebouncedCounter
+end:
+	rjmp end
