@@ -1,0 +1,283 @@
+;Measuring the number of revolutions of the motor (controlled by potentiometer) through opto-interruptor, and
+;recording the result to the LCD.
+
+;Connections
+;MOTOR/POTENTIOMETER/OPTO-INTERRUPTOR
+;POT ~ MOT
+;+5V ~ OpE
+;OpO ~ TDX2 (INT2)
+
+;LCD
+;PF{0-7) ~ D{0-7}
+;BE~RS ~ PA{4~7}
+
+.include "m2560def.inc"
+
+;REGISTERS
+.def temp1 = r16
+.def temp2 = r17
+.def result = r18
+.def digit1 = r19
+.def digit2 = r20
+.def digit3 = r21
+.def counter1 = r22
+.def counter2 = r23
+
+;CONSTANTS
+.equ LCD_RS = 7			;Register Select
+.equ LCD_E = 6			;Enable
+.equ LCD_RW = 5			;Read/Write
+.equ F_CPU = 16000000	;16MHz
+.equ DELAY_1MS = F_CPU / 4 / 1000 - 4 ;3996
+
+;MACROS
+.macro clear
+	ldi YL, low(@0)
+	ldi YH, high(@0)
+	clr temp1
+	st Y+, temp1
+	st Y, temp1
+.endmacro
+
+.macro do_lcd_command	;Perform commands to LCD
+	ldi temp1, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_data		;Perform write commands to LCD
+	ldi temp1, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.macro lcd_set
+	sbi PORTA, @0		;Set bit
+.endmacro
+
+.macro lcd_clr
+	cbi PORTA, @0		;Clear bit
+.endmacro
+
+.macro print_digit
+	mov temp2, @0
+	ldi temp1, 48		;ASCII conversion
+	add temp1, temp2
+	rcall lcd_data		;Print, increment
+	rcall lcd_wait	
+.endmacro
+
+;SETUP
+;We need to setup TIMER0, INTERRUPT2, RESET, LCD
+.org 0x0000			;Reset Interrupt
+	jmp RESET
+
+.org INT2addr		;External Interrupt 2 (TDX2)
+	jmp EXT_INT2
+
+.org OVF0addr		;Timer Overflow Address
+	jmp Timer0OVF
+
+.dseg
+TempCounter:
+	.byte 2
+
+.cseg
+
+RESET:
+	ldi temp1, low(RAMEND)		; Initialise Stack
+	out SPL, temp1
+	ldi temp1, high(RAMEND) 
+	out SPH, temp1
+
+	clr temp1
+	clr temp2
+	clr result
+	clr digit1
+	clr digit2
+	clr digit3
+	clr counter1
+	clr counter2
+
+	ldi temp1, (1<<ISC21)		; Set-up External Interrupt 2 for falling-edge
+	sts EICRA, temp1
+	in temp1, EIMSK
+	ori temp1, (1<<INT2)
+	out EIMSK, temp1
+
+	ldi temp1, 0x00				; Set-up Timer0 Overflow (128ms)
+	out TCCR0A, temp1
+	ldi temp1, 0x02
+	out TCCR0B, temp1
+	ldi temp1, 1<<TOIE0
+	sts TIMSK0, temp1
+
+	sei
+
+	ser r16						;Set-up LCD
+	out DDRF, r16				;Set Port F output (connects to LCD data pins)
+	out DDRA, r16				;Set Port A output (connects to LCD control pins)
+	clr r16
+	out PORTF, r16
+	out PORTA, r16
+
+	do_lcd_command 0b00111000 ; 2x5x7 (2 lines; 5x7 dots)
+	rcall sleep_5ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	rcall sleep_1ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00001000 ; Display off
+	do_lcd_command 0b00000001 ; Clear display
+	do_lcd_command 0b00000110 ; Entry Mode set: increment, no display shift
+	do_lcd_command 0b00001111 ; Display on: Cursor on, bar, no blink
+
+	do_lcd_data 'J'
+
+	loop: 
+		rjmp loop
+
+;Counter1 counts up to 4. Once it reaches 4, increment Counter2, and reset Counter1
+;Counter2 -> Number of revolutions * 2 
+EXT_INT2:			;Opto-Interrupter - Does not require debouncing
+	inc counter1
+	cpi counter1, 4
+	breq inc_counter2
+	rjmp finish_count
+	
+	inc_counter2:
+		clr counter1
+		inc counter2
+		inc counter2
+
+	finish_count:
+		reti
+
+Timer0OVF:
+	in temp1, SREG
+	push temp1
+	push YH
+	push YL
+	push r25
+	push r24
+
+	lds r24, TempCounter
+	lds r25, TempCounter+1
+	adiw r25:r24, 1
+	cpi r24, low(7812/2)
+	ldi temp1, high (7812/2)
+	cpc r25, temp1
+
+	brne NotTick			;500ms Passed
+	clear TempCounter
+	
+	;Display number of revolutions
+	displayRevolution:
+		do_lcd_command 0b00000001 ; Clear display
+		mov result, counter2
+		rcall separateDigits	  ; Separate result (8 bits) into 3 digits
+		print_digit digit3
+		print_digit digit2
+		print_digit digit1
+		clr counter2
+		rjmp epilogue
+
+NotTick:
+	sts TempCounter, r24
+	sts TempCounter+1, r25
+	rjmp epilogue
+
+epilogue:
+	pop r24
+	pop r25
+	pop YL
+	pop YH
+	pop temp1
+	out SREG, temp1
+	reti
+
+;FUNCTIONS
+
+lcd_command:
+	out PORTF, temp1	;Output PORTF with data
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	ret
+
+lcd_data:
+	out PORTF, temp1	;Output PORTF with data
+	lcd_set LCD_RS		;RS = 1; RW = 0 to write data
+	rcall sleep_1ms		
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_RS		;RS = 0; RW = 0
+	ret
+
+lcd_wait:				;Busy flag
+	push temp1
+	clr temp1
+	out DDRF, temp1		;Port F as output
+	out PORTF, temp1
+	lcd_set LCD_RW		;RS = 0; RW = 1 (needed for busy mode)
+lcd_wait_loop:
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	in temp1, PINF		;Retrive data from PINF
+	lcd_clr LCD_E		;Clear Enable bit
+	sbrc temp1, 7         ;Check busy flag
+	rjmp lcd_wait_loop
+	lcd_clr LCD_RW		;Clear LCD_RW
+	ser temp1
+	out DDRF, temp1		;Set Port F to output
+	pop temp1
+	ret
+
+; 4 cycles per iteration - setup/call-return overhead
+sleep_1ms:
+	push r24
+	push r25
+	ldi r25, high(DELAY_1MS)
+	ldi r24, low(DELAY_1MS)
+delayloop_1ms:
+	sbiw r25:r24, 1	
+	brne delayloop_1ms
+	pop r25
+	pop r24
+	ret
+sleep_5ms:
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	ret
+
+separateDigits:					;123 becomes '1' '2' and '3'
+	push temp1
+	clr digit1
+	clr digit2
+	clr digit3
+	mov temp1, result
+	hundred:					;Subtract 100 until temp1 is less than 100
+		cpi temp1, 100
+		brlo ten
+		subi temp1, 100
+		inc digit3
+		rjmp hundred
+	ten:						;Subtract 10 until temp1 is less than 10
+		cpi temp1, 10
+		brlo one
+		subi temp1, 10
+		inc digit2
+		rjmp ten
+	one:						;The remainder is put to digit1
+		mov digit1, temp1
+
+	pop temp1
+	ret

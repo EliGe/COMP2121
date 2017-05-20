@@ -1,0 +1,141 @@
+;Display COMP2121 on the LCD
+
+;Note
+;The LCD data pins D0-D7 should be connected to PORTF0-7.  
+;The four LCD control pins BE-RS should be connected to PORTA4-7. 
+
+.include m2560def.inc
+
+.macro do_lcd_command
+	ldi r16, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_data
+	ldi r16, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.org 0
+	jmp RESET
+
+RESET
+	ldi r16, low(RAMEND)
+	out SPL, r16
+	ldi r16, high(RAMEND)
+	out SPH, r16
+
+	ser r16
+	out DDRF, r16
+	out DDRA, r16
+	clr r16
+	out PORTF, r16
+	out PORTA, r16
+
+	do_lcd_command 0b00111000 ; 2x5x7 (2 lines; 5x7 dots)
+	rcall sleep_5ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	rcall sleep_1ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00001000 ; Display off
+	do_lcd_command 0b00000001 ; Clear display
+	do_lcd_command 0b00000110 ; Entry Mode set increment, no display shift
+	do_lcd_command 0b00001111 ; Display on Cursor on, bar, no blink
+
+	do_lcd_data 'C'
+	do_lcd_data 'O'
+	do_lcd_data 'M'
+	do_lcd_data 'P'
+	do_lcd_data '2'
+	do_lcd_data '1'
+	do_lcd_data '2'
+	do_lcd_data '1'
+	do_lcd_command 0b11000000		; forces cursor to the next line
+	do_lcd_data 'L'
+	do_lcd_data 'a'
+	do_lcd_data 'b'
+	do_lcd_data ' '
+	do_lcd_data '4'
+
+end
+	rjmp end
+
+.equ LCD_RS = 7			;Register Select
+.equ LCD_E = 6			;Enable
+.equ LCD_RW = 5			;ReadWRite
+
+.macro lcd_set
+	sbi PORTA, @0		;Set bit
+.endmacro
+
+.macro lcd_clr
+	cbi PORTA, @0		;Clear bit
+.endmacro
+
+; Send a command to the LCD (r16)
+lcd_command
+	out PORTF, r16		;Output PORTF with data
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	ret
+
+lcd_data
+	out PORTF, r16		;Output PORTF with data
+	lcd_set LCD_RS		;RS = 1; RW = 0 to write data
+	rcall sleep_1ms		
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_RS		;RS = 0; RW = 0
+	ret
+
+lcd_wait				;Busy flag
+	push r16
+	clr r16
+	out DDRF, r16		;Port F as output
+	out PORTF, r16
+	lcd_set LCD_RW		;RS = 0; RW = 1 (needed for busy mode)
+lcd_wait_loop
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	in r16, PINF		;Retrive data from PINF
+	lcd_clr LCD_E		;Clear Enable bit
+	sbrc r16, 7         ;Check busy flag
+	rjmp lcd_wait_loop
+	lcd_clr LCD_RW		;Clear LCD_RW
+	ser r16
+	out DDRF, r16		;Set Port F to output
+	pop r16
+	ret
+
+.equ F_CPU = 16000000	;16MHz
+.equ DELAY_1MS = F_CPU  4  1000 - 4 ;3996
+
+; 4 cycles per iteration - setupcall-return overhead
+sleep_1ms
+	push r24
+	push r25
+	ldi r25, high(DELAY_1MS)
+	ldi r24, low(DELAY_1MS)
+delayloop_1ms
+	sbiw r25r24, 1	
+	brne delayloop_1ms
+	pop r25
+	pop r24
+	ret
+
+sleep_5ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	ret

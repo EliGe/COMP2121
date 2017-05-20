@@ -1,0 +1,402 @@
+;Program the keypad + LCD to generate a "calculator"
+;Basically putting A and B together
+
+.include "m2560def.inc"
+
+;REGISTERS
+.def row = r16			; current row number
+.def col = r17			; current column number
+.def rmask = r18		; mask for current row during scan
+.def cmask = r19		; mask for current column during scan
+.def temp3 = r20		
+.def digit1 = r21		;3 Input digits (8-bit unsigned calculator)
+.def digit2 = r22
+.def digit3 = r23
+.def result = r24		;Result displayed at the top of the LCD
+.def temp1 = r25
+.def temp2 = r15
+
+;CONSTANTS
+.equ PORTLDIR = 0xF0	; Setting PD7-4 (columns) to output (1111) and PD3-0 (rows) to input (0000)
+.equ INITCOLMASK = 0xEF	; scan from the rightmost column
+.equ INITROWMASK = 0x01	; scan from the top row
+.equ ROWMASK = 0x0F		; for obtaining input from Port D
+.equ LCD_RS = 7			;Register Select
+.equ LCD_E = 6			;Enable
+.equ LCD_RW = 5			;Read/Write
+.equ F_CPU = 16000000	;16MHz
+.equ DELAY_1MS = F_CPU / 4 / 1000 - 4 ;3996
+
+;MACROS
+.macro do_lcd_command	;Perform commands to LCD
+	ldi temp1, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_data		;Perform write commands to LCD
+	ldi temp1, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.macro lcd_set
+	sbi PORTA, @0		;Set bit
+.endmacro
+
+.macro lcd_clr
+	cbi PORTA, @0		;Clear bit
+.endmacro
+
+.macro print_digit
+	mov temp2, @0
+	ldi temp1, 48		;ASCII conversion
+	add temp1, temp2
+	rcall lcd_data		;Print, increment
+	rcall lcd_wait	
+.endmacro
+
+;SETUP
+.org 0
+	jmp RESET
+
+RESET:					;Sets up LCD and Keypad
+	ldi r16, low(RAMEND)	;Initialise stack pointer
+	out SPL, r16
+	ldi r16, high(RAMEND)
+	out SPH, r16
+		
+	;SET UP LCD
+	ser r16
+	out DDRF, r16		;Set Port F output (connects to LCD data pins)
+	out DDRA, r16		;Set Port A output (connects to LCD control pins)
+	clr r16
+	out PORTF, r16
+	out PORTA, r16
+
+	do_lcd_command 0b00111000 ; 2x5x7 (2 lines; 5x7 dots)
+	rcall sleep_5ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	rcall sleep_1ms
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00111000 ; 2x5x7
+	do_lcd_command 0b00001000 ; Display off
+	do_lcd_command 0b00000001 ; Clear display
+	do_lcd_command 0b00000110 ; Entry Mode set: increment, no display shift
+	do_lcd_command 0b00001111 ; Display on: Cursor on, bar, no blink
+
+	do_lcd_data 'C'			  ;Just check if it's working i guess
+	do_lcd_data 'O'
+	do_lcd_data 'M'
+	do_lcd_data 'P'
+	do_lcd_data '2'
+	do_lcd_data '1'
+	do_lcd_data '2'
+	do_lcd_data '1'
+	do_lcd_command 0b11000000		; forces cursor to the next line
+	do_lcd_data 'L'
+	do_lcd_data 'a'
+	do_lcd_data 'b'
+	do_lcd_data ' '
+	do_lcd_data '4'
+
+	rcall sleep_500ms		
+	rcall sleep_500ms		
+	rcall sleep_500ms		
+	rcall sleep_500ms	
+	
+	do_lcd_command 0b00000001 ; Clear display
+	do_lcd_data '0'
+	do_lcd_command 0b11000000		; forces cursor to the next line
+	do_lcd_data '0'
+	do_lcd_data '0'
+	do_lcd_data '0'
+		
+
+	;SET UP KEYPAD
+	ldi temp1, PORTLDIR		; load PORTLDIR into temp1
+	sts DDRL, temp1			; Will set PD7-4 to output and PD3-0 to input (STS because port L is memory mapped)
+	ser temp1				; sets temp1 to 1
+	out DDRC, temp1			; PORTC is output
+	out PORTC, temp1		; Turn on 8 LED's
+
+	clr r0
+	clr digit1
+	clr digit2
+	clr digit3
+	clr result
+	sei						;Set global interrupt flag
+
+	rjmp checkKeypad
+
+;STAGE 1: OPERAND
+;1. Check keypad for any pressed keys
+;2. If number (0 ~ 9) store result (digit1, digit2, digit3)
+;3. If '*', RESET
+;4. If letter, go to STAGE 2
+checkKeypad:				;Scans Keypad to see if button is pressed
+	ldi cmask, INITCOLMASK	; initial column mask
+	clr col					; initial column
+	colloop:
+		cpi col, 4		
+		breq checkKeypad		; if all keys are scanned, repeat
+		sts PORTL, cmask		; otherwise scan a column
+		ldi temp1, 0xFF			; for slowing down the scan operation
+	delay: 
+		dec temp1
+		brne delay
+		lds temp1, PINL			; read PORTL
+	handleKey:
+		andi temp1, ROWMASK		; Get the keypad output value
+		cpi temp1, 0xF			; Check if anything is pressed on each row (1111 for not pressed)
+		breq nextcol			
+		ldi rmask, INITROWMASK	; initialise for row check
+		clr row
+	rowloop:
+		cpi row, 4
+		breq nextcol			; the row scan is over
+		mov temp2, temp1
+		and temp2, rmask		; check un-masked bit
+		breq convert			; if bit is clear, the key is pressed
+		inc row					; else move to the next row
+		lsl rmask
+		jmp rowloop
+	nextcol:
+		lsl cmask
+		inc col
+		jmp colloop
+	convert:
+		cpi col, 3				; if key is in column 3
+		breq transformDisplay	; they are letters so go to STAGE 2
+		cpi row, 3				; if the key is in row 3
+		breq symbols			; they are symbols
+		mov temp1, row			; these are the numbers 1-9
+		lsl temp1
+		add temp1, row
+		add temp1, col
+		subi temp1, -1
+		jmp convert_end
+	symbols:
+		cpi col, 0				;*
+		breq star
+		cpi col, 1				;0
+		breq zero				
+		cpi col, 2				;#
+		breq checkKeypad		;do nothing, check for another key
+	star:						;Star = Reset accumulator
+		jmp RESET
+	zero:
+		mov temp1, r0
+		jmp convert_end
+	convert_end:
+		out PORTC, temp1
+		jmp storeDigit
+	storeDigit:					;digit1: 1's digit2: 10's digit3: 100's
+		mov digit3, digit2
+		mov digit2, digit1
+		mov digit1, temp1
+	printDigits:				  ;Print out digits on the LCD (2nd line)
+		do_lcd_command 0b00000010 ;Move cursor home
+		do_lcd_command 0b11000000 ;forces cursor to the next line
+		print_digit digit3
+		print_digit digit2
+		print_digit digit1
+
+		rcall sleep_100ms		;Debouncing
+		rcall sleep_100ms
+		jmp checkKeypad
+
+;STAGE 2: If letter is pressed
+;1. Clear display
+;2. Perform designated operation
+;3. Store and add result to 1st line
+;4. Clear digits
+	transformDisplay:
+		do_lcd_command 0b00000001 ; Clear display
+		do_lcd_command 0b00000010 ; Move cursor home
+		rcall putDigitsTogether	   ;eg, '1' '2' '3' becomes 123. the result is stored in temp2
+		clr temp1
+		clr temp3
+	letters:
+		cpi row, 0
+		breq addition
+		cpi row, 1
+		breq subtraction
+		cpi row, 2
+		breq preMultiplication
+		cpi row, 3
+		breq preDivision
+	addition:					  ;Unsigned 8-bit addition
+		add result, temp2
+		jmp accumulate
+	subtraction:
+		sub result, temp2		  ;Unsigned 8-bit subtraction
+		jmp accumulate
+	preMultiplication:			  ;Unsigned 8-bit multiplcation
+		mov temp3, result
+		subi temp1, -1
+		multiplication:
+			cp temp1, temp2		  ;Many additions
+			breq accumulate
+			add result, temp3
+			inc temp1
+			rjmp multiplication
+	preDivision:				  ;Unsigned 8-bit division.
+		cp temp2, r0			  ;Check case where you divide by 0. Skip if it is the case
+		breq accumulate
+		mov temp1, result		  ;Many subtractions. Ignore remainder. Value is floored
+		clr result
+		division:
+			cp temp1, temp2
+			brlo accumulate
+			sub temp1, temp2
+			inc result
+			rjmp division
+
+	accumulate:					  ;Print Result to LCD, resets digits, jumps back to checkKeypad
+		rcall separateDigits
+		print_digit digit3
+		print_digit digit2
+		print_digit digit1
+		clr digit1
+		clr digit2
+		clr digit3
+		do_lcd_command 0b11000000 ;forces cursor to the next line
+		do_lcd_data '0'
+		do_lcd_data '0'
+		do_lcd_data '0'
+
+		rcall sleep_100ms		;Debouncing
+		rcall sleep_100ms
+		jmp checkKeypad
+
+end:
+	rjmp end
+
+;Functions
+; Send a command to the LCD (r16)
+lcd_command:
+	out PORTF, temp1	;Output PORTF with data
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	ret
+
+lcd_data:
+	out PORTF, temp1	;Output PORTF with data
+	lcd_set LCD_RS		;RS = 1; RW = 0 to write data
+	rcall sleep_1ms		
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_RS		;RS = 0; RW = 0
+	ret
+
+lcd_wait:				;Busy flag
+	push temp1
+	clr temp1
+	out DDRF, temp1		;Port F as output
+	out PORTF, temp1
+	lcd_set LCD_RW		;RS = 0; RW = 1 (needed for busy mode)
+lcd_wait_loop:
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	in temp1, PINF		;Retrive data from PINF
+	lcd_clr LCD_E		;Clear Enable bit
+	sbrc temp1, 7         ;Check busy flag
+	rjmp lcd_wait_loop
+	lcd_clr LCD_RW		;Clear LCD_RW
+	ser temp1
+	out DDRF, temp1		;Set Port F to output
+	pop temp1
+	ret
+
+; 4 cycles per iteration - setup/call-return overhead
+sleep_1ms:
+	push r24
+	push r25
+	ldi r25, high(DELAY_1MS)
+	ldi r24, low(DELAY_1MS)
+delayloop_1ms:
+	sbiw r25:r24, 1	
+	brne delayloop_1ms
+	pop r25
+	pop r24
+	ret
+sleep_5ms:
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	ret
+sleep_25ms:
+	rcall sleep_5ms
+	rcall sleep_5ms
+	rcall sleep_5ms
+	rcall sleep_5ms
+	rcall sleep_5ms
+	ret
+sleep_100ms:
+	rcall sleep_25ms
+	rcall sleep_25ms
+	rcall sleep_25ms
+	rcall sleep_25ms
+	ret
+sleep_500ms:
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	ret
+
+putDigitsTogether:		      ;eg, '1' '2' '3' becomes 123 ;Destroys temp2
+	push temp1
+	clr temp1
+	clr temp2
+	hundreds:				  ;Add digit3 100 times
+		cpi temp1, 100
+		breq tens
+		add temp2, digit3
+		inc temp1
+		rjmp hundreds
+	tens:					  ;Add digit2 10 times
+		cpi temp1, 110
+		breq ones
+		add temp2, digit2
+		inc temp1
+		rjmp tens
+	ones:					  ;Add digit1 once
+		add temp2, digit1
+	pop temp1
+	ret
+	
+separateDigits:					;123 becomes '1' '2' and '3'
+	push temp1
+	clr digit1
+	clr digit2
+	clr digit3
+	mov temp1, result
+	hundred:					;Subtract 100 until temp1 is less than 100
+		cpi temp1, 100
+		brlo ten
+		subi temp1, 100
+		inc digit3
+		rjmp hundred
+	ten:						;Subtract 10 until temp1 is less than 10
+		cpi temp1, 10
+		brlo one
+		subi temp1, 10
+		inc digit2
+		rjmp ten
+	one:						;The remainder is put to digit1
+		mov digit1, temp1
+
+	pop temp1
+	ret
+

@@ -1,0 +1,84 @@
+; This program gets input from keypad and displays its numeric value on LEDS
+
+.include m2560def.inc
+
+.def row = r16			; current row number
+.def col = r17			; current column number
+.def rmask = r18		; mask for current row during scan
+.def cmask = r19		; mask for current column during scan
+.def temp1 = r20
+.def temp2 = r21
+.def isPressed = r22
+
+.equ PORTLDIR = 0xF0	; Setting PD7-4 (columns) to output (1111) and PD3-0 (rows) to input (0000)
+.equ INITCOLMASK = 0xEF	; scan from the rightmost column
+.equ INITROWMASK = 0x01	; scan from the top row
+.equ ROWMASK = 0x0F		; for obtaining input from Port D
+
+RESET
+	ldi temp1, low(RAMEND)
+	out SPL, temp1
+	ldi temp1, high(RAMEND)
+	out SPH, temp1
+
+	ldi temp1, PORTLDIR		; load PORTLDIR into temp1
+	sts DDRL, temp1			; Will set PD7-4 to output and PD3-0 to input (STS because port L is memory mapped)
+	ser temp1				; sets temp1 to 1
+	out DDRC, temp1			; PORTC is output
+	out PORTC, temp1		; Turn on 8 LED's
+
+	clr isPressed
+	clr r0
+	sei
+
+	jmp main
+
+main
+	ldi cmask, INITCOLMASK	; initial column mask
+	clr col					; initial column
+colloop
+	cpi col, 4		
+	breq main				; if all keys are scanned, repeat
+	sts PORTL, cmask		; otherwise scan a column
+	ldi temp1, 0xFF			; for slowing down the scan operation
+delay 
+	dec temp1
+	brne delay
+	lds temp1, PINL			; read PORTL
+handleKey
+	andi temp1, ROWMASK		; Get the keypad output value
+	cpi temp1, 0xF			; Check if anything is pressed on each row (1111 for not pressed)
+	breq nextcol			
+	ldi rmask, INITROWMASK	; initialise for row check
+	clr row
+rowloop
+	cpi row, 4
+	breq nextcol			; the row scan is over
+	mov temp2, temp1
+	and temp2, rmask		; check un-masked bit
+	breq convert			; if bit is clear, the key is pressed
+	inc row					; else move to the next row
+	lsl rmask
+	jmp rowloop
+nextcol
+	lsl cmask
+	inc col
+	jmp colloop
+convert
+	cpi col, 3				; if key is in column 3
+	breq doNothing			; they are letters so do nothing
+	cpi row, 3				; if the key is in row 3
+	breq doNothing			; they are symbols, so do nothing
+	mov temp1, row			; these are the numbers 1-9
+	lsl temp1
+	add temp1, row
+	add temp1, col
+	subi temp1, -'1'
+	jmp convert_end
+doNothing
+	out PORTC, r0
+	jmp main
+convert_end
+	andi temp1, 0b00001111	; this clears the first four bits, and keeps the setted last 4 bits
+	out PORTC, temp1
+	jmp main
