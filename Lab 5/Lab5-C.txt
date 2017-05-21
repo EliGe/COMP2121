@@ -1,0 +1,434 @@
+; TASK: Implement PWM to MOTOR
+; THE MOTOR WILL AUTO ADJUST TO TARGET SPEED
+; 1. PB0 adds 20 target speed (to 100) revs/s
+; 2. PB1 decs 20 target speed (to 0) revs/s
+; 3. LCD Displays TARGET SPEED on 1st Line
+; 4. LCD Displays CURRENT SPEED on 2nd Line
+
+; WIRING
+
+; MOTOR
+; MOT ~ PE2
+
+; OPTO-INTERRUPTER
+; OpE ~ +5V
+; OpO ~ TDX2 (INT2)		(PORTD)
+
+; LCD
+; PF{0-7) ~ D{0-7}
+; BE~RS ~ PA{4~7}
+
+; PB0/1
+; PB0 ~ RDX4	(PORTD)
+; PB1 ~ RDX3	(PORTD)
+
+; REGISTERS
+.def counter1 = r15
+.def temp1 = r16
+.def temp2 = r17
+.def targetSpeed = r18		;Rev/s
+.def currentSpeed = r19		;Rev/s
+.def digit1 = r20
+.def digit2 = r21
+.def digit3 = r22
+.def debounce = r23
+.def speed = r24			;0(min) ~ 255(max)
+.def speedGoal = r25		;0(min) ~ 255(max)
+
+; CONSTANTS
+.equ maxSpeed = 100
+.equ minSpeed = 0
+.equ LCD_RS = 7			;Register Select
+.equ LCD_E = 6			;Enable
+.equ LCD_RW = 5			;Read/Write
+.equ F_CPU = 16000000	;16MHz
+.equ DELAY_1MS = F_CPU / 4 / 1000 - 4
+
+; MACROS
+.macro clear
+	ldi YL, low(@0)
+	ldi YH, high(@0)
+	clr temp1
+	st Y+, temp1
+	st Y, temp1
+.endmacro
+
+.macro do_lcd_command	;Perform commands to LCD
+	ldi temp1, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_data		;Perform write commands to LCD
+	ldi temp1, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.macro lcd_set
+	sbi PORTA, @0		;Set bit
+.endmacro
+
+.macro lcd_clr
+	cbi PORTA, @0		;Clear bit
+.endmacro
+
+.macro print_digit
+	mov temp2, @0
+	ldi temp1, 48		;ASCII conversion
+	add temp1, temp2
+	rcall lcd_data		;Print, increment
+	rcall lcd_wait	
+.endmacro
+
+; ADDRESSES
+.org 0x0000			;RESET
+	jmp RESET
+.org INT0addr		;PB0
+	jmp EXT_INT0
+.org INT1addr		;PB1
+	jmp EXT_INT1
+.org INT2addr		;OPTO-INTERRUPTER
+	jmp EXT_INT2
+.org OVF0addr		;TIMER (Debouncing)
+	jmp TIMER0OVF
+.org OVF3addr		;TIMER (PWM SIGNAL)
+	jmp TIMER3OVF
+
+.dseg
+TempCounter:
+	.byte 2
+
+.cseg
+; SETUP
+; 1. STACK POINTER
+; 2. INTERRUPT 0, 1, 2
+; 3. TIMER 0,3
+; 4. LCD
+RESET:
+	clr temp1
+	clr temp2
+	clr targetSpeed		;Target Speed Starts at 0
+	clr currentSpeed
+	clr digit1
+	clr digit2
+	clr digit3
+	clr debounce
+	clr counter1
+	clr speed
+	clr speedGoal
+
+	; 1
+	ldi temp1, low(RAMEND)
+	out SPL, temp1
+	ldi temp1, high(RAMEND)
+	out SPH, temp1
+
+	; 2 - All external interrupts active on FALLING EDGE
+	ldi temp1, (1<<ISC21) | (1<<ISC11) | (1<<ISC01) ;Set Falling Edge
+	sts EICRA, temp1
+	in temp1, EIMSK
+	ori temp1, (1<<INT2) | (1<<INT1) | (1<<INT0)
+	out EIMSK, temp1
+
+	; 3
+	; TIMER 0 - Overflow Timer - Prescale 8 (128ms)
+	ldi temp1, 0x00	
+	out TCCR0A, temp1
+	ldi temp1, 0x02
+	out TCCR0B, temp1
+	ldi temp1, 1<<TOIE0
+	sts TIMSK0, temp1
+
+	; TIMER 3 - PWM - PHASE-CORRECT MODE (Set downcounting; clear upcounting)
+	ser temp1
+	out DDRE, temp1
+	ldi temp1, (1<<CS30)	;No Prescale?
+	sts TCCR3B, temp1
+	ldi temp1, (1<<WGM30) | (1<<COM3B1)
+	sts TCCR3A, temp1
+
+	ldi temp1, 0b00000100	;Prescaler 256
+	sts TCCR3B, temp1
+	ldi temp1, (1<<TOIE3)
+	sts TIMSK3, temp1
+
+	;4
+	ser temp1
+	out DDRF, temp1
+	out DDRA, temp1				
+	clr temp1
+	out PORTF, temp1
+	out PORTA, temp1
+
+	;2X5X7, INCREMENT, CURSOR ON, BAR ON, BLINK
+	do_lcd_command 0b00111000
+	rcall sleep_5ms
+	do_lcd_command 0b00111000
+	rcall sleep_1ms
+	do_lcd_command 0b00111000
+	do_lcd_command 0b00111000
+	do_lcd_command 0b00001000 ; Display off
+	do_lcd_command 0b00000001 ; Clear display
+	do_lcd_command 0b00000110 ; Entry Mode set: increment, no display shift
+	do_lcd_command 0b00001111 ; Display on: Cursor on, bar, no blink
+
+	do_lcd_data '0'
+	do_lcd_data '0'
+	do_lcd_data '0'
+	do_lcd_command 0b11000000 ;forces cursor to the next line
+	do_lcd_data '0'
+	do_lcd_data '0'
+	do_lcd_data '0'
+
+end:
+	rjmp end
+
+; 1. Check Debounce
+; 2. Add 20 to targetSpeed
+; 3. Change the Display
+EXT_INT0:
+	; 1
+	cpi debounce, 0
+	breq input0
+	reti
+
+input0:
+	;ldi debounce, 1
+
+	; 2
+	cpi targetSpeed, 80
+	brsh changeToMax			  ; Target Speed >= 80
+	ldi temp1, 20
+	add targetSpeed, temp1
+	jmp updateDisplay
+	changeToMax:
+		ldi targetSpeed, maxSpeed
+		jmp updateDisplay
+
+; Same as EXT_INT1, but subtracts 20
+EXT_INT1:
+	; 1
+	cpi debounce, 0
+	breq input1
+	reti
+
+input1:
+	;ldi debounce, 1
+
+	; 2
+	cpi targetSpeed, 20
+	brlo changeToMin
+	ldi temp1, 20
+	sub targetSpeed, temp1
+	jmp updateDisplay
+	changeToMin:
+		ldi targetSpeed, minSpeed
+		jmp updateDisplay
+
+; 3
+updateDisplay:
+	rcall updateTargetSpeed
+	ldi debounce, 1
+	reti
+
+; 1. MEASURE CURRENT SPEED
+EXT_INT2:
+	inc counter1
+	mov currentSpeed, counter1
+	reti
+
+; PURPOSES:
+; 1. Debouncing (250ms)
+; 2. Update Display for Current Speed every 250ms
+TIMER0OVF:
+	in temp1, SREG
+	push temp1
+	push YH
+	push YL
+	push r25
+	push r24
+
+	lds r24, TempCounter
+	lds r25, TempCounter+1
+	adiw r25:r24, 1
+	cpi r24, low(1953)			;250ms
+	ldi temp1, high(1953)
+	cpc r25, temp1
+	brne notQuarterSecond
+
+quarterSecond:
+	clear TempCounter
+	clr debounce
+	rcall updateCurrentSpeed
+	rjmp epilogue
+
+notQuarterSecond:
+	sts TempCounter, r24
+	sts TempCounter+1, r25
+	rjmp epilogue
+
+epilogue:
+	pop r24
+	pop r25
+	pop YL
+	pop YH
+	pop temp1
+	out SREG, temp1
+
+	reti
+
+; AUTO-ADJUST SPEED OF MOTOR
+; 1. IF CURRENTSPEED < TARGETSPEED, THEN INCREASE CURRENT SPEED
+; 2. IF CURRENTSPEED > TARGETSPEED, THEN DECREASE CURRENT SPEED
+; 3. IF CURRENTSPEED = TARGETSPEED, THEN DO NOTHING
+TIMER3OVF:
+	rcall convertRevTo255
+
+	cp speed, speedGoal
+	brlo increaseSpeed
+	cp speed, speedGoal
+	breq finish
+	rjmp decreaseSpeed
+	decreaseSpeed:
+		cpi speed, minSpeed
+		breq finish
+		dec speed
+		rjmp finish
+
+	increaseSpeed:
+		cpi speed, 255
+		breq finish
+		inc speed
+		rjmp finish
+
+	finish:
+	sts OCR3BL, speed
+	reti
+
+; FUNCTIONS
+lcd_command:
+	out PORTF, temp1	;Output PORTF with data
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	ret
+
+lcd_data:
+	out PORTF, temp1	;Output PORTF with data
+	lcd_set LCD_RS		;RS = 1; RW = 0 to write data
+	rcall sleep_1ms		
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_E		;Clear Enable bit
+	rcall sleep_1ms
+	lcd_clr LCD_RS		;RS = 0; RW = 0
+	ret
+
+lcd_wait:				;Busy flag
+	push temp1
+	clr temp1
+	out DDRF, temp1		;Port F as output
+	out PORTF, temp1
+	lcd_set LCD_RW		;RS = 0; RW = 1 (needed for busy mode)
+lcd_wait_loop:
+	rcall sleep_1ms
+	lcd_set LCD_E		;Set Enable bit
+	rcall sleep_1ms
+	in temp1, PINF		;Retrive data from PINF
+	lcd_clr LCD_E		;Clear Enable bit
+	sbrc temp1, 7         ;Check busy flag
+	rjmp lcd_wait_loop
+	lcd_clr LCD_RW		;Clear LCD_RW
+	ser temp1
+	out DDRF, temp1		;Set Port F to output
+	pop temp1
+	ret
+
+; 4 cycles per iteration - setup/call-return overhead
+sleep_1ms:
+	push r24
+	push r25
+	ldi r25, high(DELAY_1MS)
+	ldi r24, low(DELAY_1MS)
+delayloop_1ms:
+	sbiw r25:r24, 1	
+	brne delayloop_1ms
+	pop r25
+	pop r24
+	ret
+sleep_5ms:
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	rcall sleep_1ms
+	ret
+
+separateDigits:					;123 becomes '1' '2' and '3'
+	push temp1
+	clr digit1
+	clr digit2
+	clr digit3
+	mov temp1, temp2
+	hundred:					;Subtract 100 until temp1 is less than 100
+		cpi temp1, 100
+		brlo ten
+		subi temp1, 100
+		inc digit3
+		rjmp hundred
+	ten:						;Subtract 10 until temp1 is less than 10
+		cpi temp1, 10
+		brlo one
+		subi temp1, 10
+		inc digit2
+		rjmp ten
+	one:						;The remainder is put to digit1
+		mov digit1, temp1
+
+	pop temp1
+	ret
+
+updateTargetSpeed:				;Update Target Speed on LCD
+	do_lcd_command 0b00000010 ;Move cursor home
+	mov temp2, targetSpeed
+	rcall separateDigits
+	print_digit digit3
+	print_digit digit2
+	print_digit digit1
+	ret
+
+updateCurrentSpeed:
+	do_lcd_command 0b11000000 ;forces cursor to the next line
+	mov temp2, counter1
+	rcall separateDigits
+	print_digit digit3
+	print_digit digit2
+	print_digit digit1
+	clr counter1
+
+	ret
+
+convertRevTo255: ;Converts targetSpeed (0~100) to a value (0~255)
+	clr speedGoal
+	mov temp1, targetSpeed
+
+	convertLoop:
+	cpi temp1, 20
+	brlo finishConvert
+
+	ldi temp2, 20
+	sub temp1, temp2
+	
+	ldi temp2, 51
+	add speedGoal, temp2
+	rjmp convertLoop
+
+	finishConvert:
+	ret
+
+
+	
+	
