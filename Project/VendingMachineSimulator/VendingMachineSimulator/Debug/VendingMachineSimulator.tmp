@@ -1,0 +1,123 @@
+<ASSEMBLER_INFO>
+ <VERSION>2.2.6</VERSION>
+ <DEVICE>"ATmega2560"</DEVICE>
+ <WORKING_DIR>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\Debug</WORKING_DIR>
+ <INCLUDE_PATH>
+  <DIR>C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.2.132\avrasm\inc</DIR>
+  <DIR>C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avrassembler\Include</DIR>
+  <DIR></DIR>
+ </INCLUDE_PATH>
+ <SOURCE_FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</SOURCE_FILE>
+ <INCLUDED_FILES>
+  <FILE>C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.2.132\avrasm\inc\m2560def.inc</FILE>
+ </INCLUDED_FILES>
+ <OBJECT_FILES>
+  <FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\Debug\VendingMachineSimulator.obj</FILE>
+ </OBJECT_FILES>
+ <HEX_FILES>
+  <FILE>VendingMachineSimulator.hex</FILE>
+ </HEX_FILES>
+ <OUTPUT_FILES>
+  <FILE>VendingMachineSimulator.map</FILE>
+  <FILE>VendingMachineSimulator.lss</FILE>
+ </OUTPUT_FILES>
+ <LABELS>
+  <RESET><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>195</LINE></RESET>
+  <EXT_INT0><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>400</LINE></EXT_INT0>
+  <EXT_INT1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>420</LINE></EXT_INT1>
+  <TIMER2OVF><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>529</LINE></TIMER2OVF>
+  <TIMER1OVF><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>483</LINE></TIMER1OVF>
+  <TIMER0OVF><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>446</LINE></TIMER0OVF>
+  <EXT_POT><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>631</LINE></EXT_POT>
+  <TIMER3OVF><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>575</LINE></TIMER3OVF>
+  <DebounceCounter><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>154</LINE></DebounceCounter>
+  <OneHalfSecondCounter><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>156</LINE></OneHalfSecondCounter>
+  <ThreeSecondCounter><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>158</LINE></ThreeSecondCounter>
+  <PotCounter><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>160</LINE></PotCounter>
+  <Item1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>164</LINE></Item1>
+  <Item2><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>166</LINE></Item2>
+  <Item3><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>168</LINE></Item3>
+  <Item4><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>170</LINE></Item4>
+  <Item5><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>172</LINE></Item5>
+  <Item6><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>174</LINE></Item6>
+  <Item7><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>176</LINE></Item7>
+  <Item8><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>178</LINE></Item8>
+  <Item9><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>180</LINE></Item9>
+  <lcd_command><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1041</LINE></lcd_command>
+  <lcd_wait><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1061</LINE></lcd_wait>
+  <sleep_5ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1093</LINE></sleep_5ms>
+  <sleep_1ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1082</LINE></sleep_1ms>
+  <start><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>353</LINE></start>
+  <startScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>654</LINE></startScreen>
+  <startToSelect><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>355</LINE></startToSelect>
+  <checkKeypad><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>819</LINE></checkKeypad>
+  <ledOff><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1027</LINE></ledOff>
+  <select><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>362</LINE></select>
+  <selectScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>692</LINE></selectScreen>
+  <getInventoryInfo><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>936</LINE></getInventoryInfo>
+  <empty><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>385</LINE></empty>
+  <coin><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>389</LINE></coin>
+  <emptyScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>709</LINE></emptyScreen>
+  <coinScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>777</LINE></coinScreen>
+  <end><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>395</LINE></end>
+  <checkEnableButton0><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>405</LINE></checkEnableButton0>
+  <checkButton0Debounce><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>410</LINE></checkButton0Debounce>
+  <returnI><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>439</LINE></returnI>
+  <startButtonPress0><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>415</LINE></startButtonPress0>
+  <checkEnableButton1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>425</LINE></checkEnableButton1>
+  <checkButton1Debounce><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>430</LINE></checkButton1Debounce>
+  <startButtonPress1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>435</LINE></startButtonPress1>
+  <notDebounce><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>468</LINE></notDebounce>
+  <debounced><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>463</LINE></debounced>
+  <timer0Epilogue><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>473</LINE></timer0Epilogue>
+  <startTimer1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>498</LINE></startTimer1>
+  <timer1Epilogue><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>519</LINE></timer1Epilogue>
+  <notOneHalfSecond><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>514</LINE></notOneHalfSecond>
+  <oneHalfSeconds><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>508</LINE></oneHalfSeconds>
+  <startTimer2><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>544</LINE></startTimer2>
+  <timer2Epilogue><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>565</LINE></timer2Epilogue>
+  <notThreeSecond><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>560</LINE></notThreeSecond>
+  <threeSecond><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>554</LINE></threeSecond>
+  <lcd_data><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1050</LINE></lcd_data>
+  <emptyScreenLoop1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>737</LINE></emptyScreenLoop1>
+  <ledOn><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1014</LINE></ledOn>
+  <emptyScreenLoop2Preq><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>750</LINE></emptyScreenLoop2Preq>
+  <emptyScreenEnd><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>764</LINE></emptyScreenEnd>
+  <emptyScreenLoop2><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>753</LINE></emptyScreenLoop2>
+  <coinScreenLoop><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>799</LINE></coinScreenLoop>
+  <sleep_500ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1113</LINE></sleep_500ms>
+  <checkEnableKeypad><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>824</LINE></checkEnableKeypad>
+  <checkKeypadDebounce><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>830</LINE></checkKeypadDebounce>
+  <return><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>917</LINE></return>
+  <startCheckKeypad><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>837</LINE></startCheckKeypad>
+  <colloop><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>840</LINE></colloop>
+  <checkKeypadEpilogue><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>902</LINE></checkKeypadEpilogue>
+  <delayCheck><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>849</LINE></delayCheck>
+  <handleKey><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>853</LINE></handleKey>
+  <nextcol><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>868</LINE></nextcol>
+  <rowloop><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>859</LINE></rowloop>
+  <convert><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>872</LINE></convert>
+  <letters><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>883</LINE></letters>
+  <symbols><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>887</LINE></symbols>
+  <finishCheckKeypad><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>900</LINE></finishCheckKeypad>
+  <star><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>894</LINE></star>
+  <zero><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>897</LINE></zero>
+  <checkModule><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>908</LINE></checkModule>
+  <jumpStartScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>923</LINE></jumpStartScreen>
+  <jumpSelectScreen><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>928</LINE></jumpSelectScreen>
+  <inventoryCountItem1><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>971</LINE></inventoryCountItem1>
+  <inventoryCountItem2><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>975</LINE></inventoryCountItem2>
+  <inventoryCountItem3><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>979</LINE></inventoryCountItem3>
+  <inventoryCountItem4><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>983</LINE></inventoryCountItem4>
+  <inventoryCountItem5><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>987</LINE></inventoryCountItem5>
+  <inventoryCountItem6><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>991</LINE></inventoryCountItem6>
+  <inventoryCountItem7><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>995</LINE></inventoryCountItem7>
+  <inventoryCountItem8><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>999</LINE></inventoryCountItem8>
+  <inventoryCountItem9><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1003</LINE></inventoryCountItem9>
+  <inventoryCountEnd><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1007</LINE></inventoryCountEnd>
+  <lcd_wait_loop><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1067</LINE></lcd_wait_loop>
+  <delayloop_1ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1087</LINE></delayloop_1ms>
+  <sleep_25ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1100</LINE></sleep_25ms>
+  <sleep_100ms><FILE>C:\Users\James Lin\Documents\Atmel Studio\7.0\VendingMachineSimulator\VendingMachineSimulator\main.asm</FILE><LINE>1107</LINE></sleep_100ms>
+ </LABELS>
+</ASSEMBLER_INFO>
