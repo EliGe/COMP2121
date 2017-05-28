@@ -14,8 +14,9 @@
 ;---------------------------------------------------------------------------------------------------
 ; REGISTERS
 ;---------------------------------------------------------------------------------------------------
+.def enableTimer5 = r1
 .def coinCount = r2
-.def enableMotor = r3
+.def enableMotLight = r3
 .def potValueL = r4
 .def potValueH = r5
 .def isPressed0 = r6
@@ -55,6 +56,7 @@
 .equ oneHalfSecond = 46		;16-bit
 .equ twoSeconds = 15624		;8-bit
 .equ threeSeconds = 23436	;8-bit
+.equ fiveSeconds = 153		;16-bit
 
 ;KEYPAD
 .equ PORTLDIR = 0xF0
@@ -127,6 +129,93 @@
 	rcall lcd_wait	
 .endmacro
 
+;INPUT = 0 -> ENABLE LIGHT
+;INPUT = 1 -> ENABLE MOTOR
+;INPUT = 2 -> DISABLE LIGHT
+;INPUT = 3 -> DISABLE MOTOR
+.macro enable_mot_light
+	push temp1
+	push temp2
+	in temp1, SREG
+	push temp1
+	ldi temp2, @0
+	clr temp1
+	cp temp2, temp1
+	breq turnOnLight
+	inc temp1
+	cp temp2, temp1
+	breq turnOnMotor
+	inc temp1
+	cp temp2, temp1
+	breq turnOffLight
+	jmp turnOffMotor
+; IF ENABLEMOTLIGHT = 0, CHANGE ENABLEMOTLIGHT TO 1
+; IF ENABLEMOTLIGHT = 2, CHANGE ENABLEMOTLIGHT TO 3
+; OTHERWISE, DO NOTHING
+turnOnLight:
+	ldi temp1, 0
+	cp enableMotLight, temp1
+	breq turnOnLightOnly
+	ldi temp1, 2
+	cp enableMotLight, temp1
+	breq turnOnBoth
+	jmp endEnableMotLight
+; IF ENABLEMOTLIGHT = 0, CHANGE ENABLEMOTLIGHT TO 2
+; IF ENABLEMOTLIGHT = 1, CHANGE ENABLEMOTLIGHT TO 3
+; OTHERWISE, DO NOTHING
+turnOnMotor:
+	ldi temp1, 0
+	cp enableMotLight, temp1
+	breq turnOnMotorOnly
+	ldi temp1, 1
+	cp enableMotLight, temp1
+	breq turnOnBoth
+	jmp endEnableMotLight
+; IF ENABLEMOTLIGHT = 1, CHANGE ENABLEMOTLIGHT TO 0
+; IF ENABLEMOTLIGHT = 3, CHANGE ENABLEMOTLIGHT TO 2
+; OTHERWISE, DO NOTHING
+turnOffLight:
+	ldi temp1, 1
+	cp enableMotLight, temp1
+	breq turnOffBoth
+	ldi temp1, 3
+	cp enableMotLight, temp1
+	breq turnOnMotorOnly
+	jmp endEnableMotLight	
+; IF ENABLEMOTLIGHT = 2, CHANGE ENABLEMOTLIGHT TO 0
+; IF ENABLEMOTLIGHT = 3, CHANGE ENABLEMOTLIGHT TO 1
+; OTHERWISE, DO NOTHING
+turnOffMotor:
+	ldi temp1, 2
+	cp enableMotLight, temp1
+	breq turnOffBoth
+	ldi temp1, 3
+	cp enableMotLight, temp1
+	breq turnOnLightOnly
+	jmp endEnableMotLight
+turnOffBoth:
+	ldi temp1, 0
+	mov enableMotLight, temp1
+	jmp endEnableMotLight
+turnOnLightOnly:
+	ldi temp1, 1
+	mov enableMotLight, temp1
+	jmp endEnableMotLight
+turnOnMotorOnly:
+	ldi temp1, 2
+	mov enableMotLight, temp1
+	jmp endEnableMotLight
+turnOnBoth:
+	ldi temp1, 3
+	mov enableMotLight, temp1
+	jmp endEnableMotLight
+endEnableMotLight:
+	pop temp1
+	out SREG, temp1
+	pop temp2
+	pop temp1
+.endmacro
+
 ;---------------------------------------------------------------------------------------------------
 ; PROGRAM ADDRESSES
 ;---------------------------------------------------------------------------------------------------
@@ -148,6 +237,8 @@
 	jmp TIMER3OVF
 .org OVF4addr
 	jmp TIMER4OVF
+.org OVF5addr
+	jmp TIMER5OVF
 ;---------------------------------------------------------------------------------------------------
 ; DATA MEMORY ALLOCATIONS
 ;---------------------------------------------------------------------------------------------------
@@ -157,6 +248,8 @@ DebounceCounter:		;250ms
 OneHalfSecondCounter:	;1.5s
 	.byte 2
 ThreeSecondCounter:		;3s
+	.byte 2
+FiveSecondCounter:		;5s
 	.byte 2
 PotCounter:				;100ms
 	.byte 2
@@ -195,8 +288,9 @@ Item9:
 ; 9. SET-UP STARTING INVENTORY
 RESET:
 	; 1 - CLEAR REGISTERS
+	clr enableTimer5
 	clr coinCount
-	clr enableMotor
+	clr enableMotLight
 	clr potValueL
 	clr potValueH
 	clr isPressed0
@@ -226,17 +320,19 @@ RESET:
 	out SPH, temp1
 
 	; 3 - TIMERS
-	; TIMER 0,1,2,4 - OVERFLOW TIMER - PRESCALE 8 (128MS)
+	; TIMER 0,1,2,4,5 - OVERFLOW TIMER - PRESCALE 8 (128MS)
 	ldi temp1, 0x00
 	out TCCR0A, temp1
 	sts TCCR1A, temp1
 	sts TCCR2A, temp1
 	sts TCCR4A, temp1
+	sts TCCR5A, temp1
 	ldi temp1, 0x02
 	out TCCR0B, temp1
 	sts TCCR1B, temp1
 	sts TCCR2B, temp1
 	sts TCCR4B, temp1
+	sts TCCR5B, temp1
 	ldi temp1, (1<<TOIE0)
 	sts TIMSK0, temp1
 	ldi temp1, (1<<TOIE1)
@@ -245,16 +341,18 @@ RESET:
 	sts TIMSK2, temp1
 	ldi temp1, (1<<TOIE4)
 	sts TIMSK4, temp1
+	ldi temp1, (1<<TOIE5)
+	sts TIMSK5, temp1
 
 	; TIMER 3 - PWM TIMER: PHASE CORRECT, PRESCALE 256
 	ser temp1				
 	out DDRE, temp1
 
-	ldi temp1, (1<<WGM30) | (1<<COM3B1)
+	ldi temp1, (1<<WGM30) | (1<<COM3B1) | (1<<COM3A1)
 	sts TCCR3A, temp1
 	ldi temp1, 0b00000100
 	sts TCCR3B, temp1
-	ldi temp1, 1<<OCIE3B
+	ldi temp1, (1<<OCIE3B) | (1<<OCIE3A)
 	sts TIMSK3, temp1
 
 	; 4 - LCD
@@ -427,8 +525,8 @@ EXT_INT0:
 	 ; IF(ENABLEBUTTONS == 0), JUMP TO END
 	 ; IF(ENABLEBUTTONS != 0), CONTINUE ON
 checkEnableButton0:
-	clr r0
-	cp enableButtons, r0
+	clr temp1
+	cp enableButtons, temp1
 	brne checkButton0Debounce
 	rjmp returnI
 	; 3
@@ -454,8 +552,8 @@ EXT_INT1:
 	in temp1, SREG
 	push temp1
 checkEnableButton1:
-	clr r0
-	cp enableButtons, r0
+	clr temp1
+	cp enableButtons, temp1
 	brne checkButton1Debounce
 	rjmp returnI
 checkButton1Debounce:
@@ -622,34 +720,81 @@ timer2Epilogue:
 	pop temp1
 	reti
 
-; TIMER 3 - PWM TIMER FOR MOTOR
+; TIMER 3 - PWM TIMER FOR MOTOR & BACKLIGHT
 ; 1. PUSH
-; 2. CHECK STATE OF ENABLEMOTOR
+; 2. CHECK STATE OF ENABLEMOTLIGHT
 ; 3. POP
 TIMER3OVF:
 	; 1
 	push temp1
+	push temp2
 	in temp1, SREG
 	push temp1
 ; 2
-; IF(ENABLEMOTOR == 1), RUN MOTOR AT FULL SPEED
-; IF(ENABLEMOTOR == 0), STOP MOTOR
-checkEnableMotor:
-	clr r0
-	cp enableMotor, r0
-	brne motorGo
-	jmp motorStop
-motorGo:
-	ser temp1
-	jmp timer3Epilogue
-motorStop:
+; IF(ENABLEMOTLIGHT == 0), DISABLE MOTOR & BACKLIGHT
+; IF(ENABLEMOTLIGHT == 1), ENABLE BACKLIGHT ONLY
+; IF(ENABLEMOTLIGHT == 2), ENABLE MOTOR ONLY
+; IF(ENABLEMOTLIGHT == 3), ENABLE MOTOR & BACKLIGHT
+checkEnableMotLight:
 	clr temp1
+	cp enableMotLight, temp1
+	breq disableBoth
+	inc temp1
+	cp enableMotLight, temp1
+	breq enableLight
+	inc temp1
+	cp enableMotLight, temp1
+	breq enableMot
+	jmp enableMotLights
+	jmp timer3Epilogue
+
+; TEMP1 (MOTOR) IS 0
+; TEMP2 (BACKLIGHT) DROPS TOWARDS 0 (IF ALREADY 0, DO NOTHING)
+disableBoth:
+	clr temp1
+	lds temp2, OCR3AL
+	cp temp2, temp1
+	breq timer3Epilogue
+	dec temp2
+	jmp timer3Epilogue
+; TEMP1 is 0
+; TEMP2 GOES TOWARDS 255 (IF ALREADY 255, DO NOTHING)
+enableLight:
+	ser temp1
+	mov r0, temp1
+	clr temp1
+	lds temp2, OCR3AL
+	cp temp2, r0
+	breq timer3Epilogue
+	inc temp2
+	jmp timer3Epilogue
+; TEMP1 is 255
+; TEMP2 DROPS TOWARDS 0 (IF ALREADY 0, DO NOTHING)
+enableMot:
+	ser temp1
+	lds temp2, OCR3AL
+	clr r0
+	cp temp2, r0
+	breq timer3Epilogue
+	dec temp2
+	jmp timer3Epilogue
+; TEMP1 is 255
+; TEMP2 GOES TOWARDS 255
+enableMotLights:
+	ser temp1
+	lds temp2, OCR3AL
+	cp temp2, temp1
+	breq timer3Epilogue
+	inc temp2
 	jmp timer3Epilogue
 ; 3
 timer3Epilogue:
+	clr r0
 	sts OCR3BL, temp1
+	sts OCR3AL, temp2 ;temp2
 	pop temp1
 	out SREG, temp1
+	pop temp2
 	pop temp1
 	reti
 
@@ -671,8 +816,8 @@ TIMER4OVF:
 	push r25
 	push r24
 checkPot:
-	clr r0
-	cp enablePot, r0
+	clr temp1
+	cp enablePot, temp1
 	breq timer4Epilogue
 startTimer4:
 	; 2
@@ -691,17 +836,17 @@ tenthSeconds:
 	clear PotCounter
 	lds potValueL, ADCL
 	lds potValueH, ADCH	
-	inc r0
-	cp enablePot, r0
+	ldi temp1, 1
+	cp enablePot, temp1
 	breq potStageMin
-	inc r0
-	cp enablePot, r0
+	inc temp1
+	cp enablePot, temp1
 	breq potStageMax
-	inc r0
-	cp enablePot, r0
+	inc temp1
+	cp enablePot, temp1
 	breq potStageMin
-	inc r0
-	cp enablePot, r0
+	inc temp1
+	cp enablePot, temp1
 	breq potStageFinal
 ; WHEN POTENTIOMETER = 0X0000 (FULLY ANTICLOCKWISE), INCREMENT
 potStageMin:
@@ -743,6 +888,53 @@ timer4Epilogue:
 	pop temp1
 	out SREG, temp1
 	pop temp2
+	pop temp1
+	reti
+
+; TIMER 5 - USED FOR TIMING 5s
+; OPERATES EXACTLY THE SAME AS TIMER1/2OVF, EXCEPT ENABLETIMER5 CAN EITHER BE 1 OR 0
+TIMER5OVF:
+	; 1
+	push temp1
+	in temp1, SREG
+	push temp1
+	push YH
+	push YL
+	push r25
+	push r24
+	; IF ENABLETIMER5 = 1, START THE TIMER
+	ldi temp1, 1
+	cp enableTimer5, temp1
+	breq startTimer5
+	rjmp timer5Epilogue
+
+startTimer5:
+	; 2
+	lds r24, FiveSecondCounter
+	lds r25, FiveSecondCounter+1
+	adiw r25:r24, 1
+	; 3
+	cpi r24, low(fiveSeconds)
+	ldi temp1, high(fiveSeconds)
+	cpc r25, temp1
+	brne notFiveSecond
+;WHEN 3 SECONDS PASS, THEN WE SET ENABLETIMER2 = 2
+fiveSecond:
+	clear ThreeSecondCounter
+	clr enableTimer5	
+	rjmp timer5Epilogue
+notFiveSecond:
+	sts FiveSecondCounter, r24
+	sts FiveSecondCounter+1, r25
+	rjmp timer5Epilogue
+; 4
+timer5Epilogue:
+	pop r24
+	pop r25
+	pop YL
+	pop YH
+	pop temp1
+	out SREG, temp1
 	pop temp1
 	reti
 
@@ -949,8 +1141,8 @@ coinScreen:
 		ldi moduleSelector, 0
 		rcall checkKeypad
 		; 4.4
-		clr r0
-		cp inventoryCost, r0
+		clr temp1
+		cp inventoryCost, temp1
 		breq updateInventory
 		; 4.5
 		ldi temp1, 0x0F
@@ -965,15 +1157,17 @@ coinScreen:
 	; IF(COINCOUNT != 0), SPIN MOTOR
 	; IF NOT, DO NOTHING
 	coinScreenLoopEnd:
-		clr r0
-		cp coinCount, r0
-		breq coinScreenEpilogue
-		inc enableMotor
+		clr temp1
+		cp coinCount, temp1
+		brne continueCoinScreenLoop
+		jmp coinScreenEpilogue
+	continueCoinScreenLoop:
+		enable_mot_light 1
 		rcall sleep_100ms
 		rcall sleep_100ms
 		rcall sleep_25ms
 		rcall sleep_25ms
-		clr enableMotor
+		enable_mot_light 3
 		rcall sleep_100ms
 		rcall sleep_100ms
 		rcall sleep_25ms
@@ -1021,7 +1215,7 @@ deliveryScreen:
 	do_lcd_data 'e'
 	do_lcd_data 'm'
 	; 4
-	inc enableMotor
+	enable_mot_light 1
 	ser temp1
 	out PORTC, temp1
 	out PORTG, temp1
@@ -1034,7 +1228,7 @@ deliveryScreen:
 	rcall sleep_500ms
 	rcall sleep_500ms
 	rcall sleep_500ms
-	clr enableMotor
+	enable_mot_light 3
 	; 5
 	pop temp1
 	out SREG, temp1
@@ -1052,8 +1246,8 @@ checkKeypad:
 ; IF(ENABLEKEYPAD == 0), RETURN
 ; IF(ENABLEKEYPAD == 1), CONTINUE
 checkEnableKeypad:
-	clr r0
-	cp enableKeypad, r0
+	clr temp1
+	cp enableKeypad, temp1
 	brne checkKeypadDebounce
 	rjmp return
 ; IF(DEBOUNCE == 0), CONTINUE
@@ -1068,6 +1262,14 @@ startCheckKeyPad:
 	ldi cmask, INITCOLMASK
 	clr col
 	colloop:
+		; CHECK 5 SECOND TIMER
+		clr temp1
+		cp enableTimer5, temp1
+		breq turnOffBacklight
+		jmp colloopContinue0
+	turnOffBacklight:
+		enable_mot_light 2
+	colloopContinue0:
 		; IF ENABLETIMER2 = 2, THEN 3 SECONDS HAVE PASSED, JUMP TO END (FOR STARTSCREEN -> SELECTSCREEN)
 		; OTHERWISE, CONTINUE
 		ldi temp1, 2
@@ -1080,7 +1282,6 @@ startCheckKeyPad:
 		cp currentModule, temp1
 		breq coinScreenUpdate
 		jmp colloopContinue2
-
 	; 1. UPDATE LCD TO INVENTORYCOST
 	; 2. UPDATE LED TO COINCOUNT
 	; 3. CHECK IF PURCHASED
@@ -1092,8 +1293,8 @@ startCheckKeyPad:
 		mov temp1, coinCount
 		out PORTC, temp1
 		; 3
-		clr r0
-		cp inventoryCost, r0
+		clr temp1
+		cp inventoryCost, temp1
 		breq toDelivery
 		jmp colloopContinue2
 	; DISABLE DEVICES, RESET COIN COUNTER
@@ -1106,7 +1307,9 @@ startCheckKeyPad:
 	; CHECK KEYPAD INPUT
 	colloopContinue2:
 		cpi col, 4				;USUAL COL/ROW LOOPING
-		breq startCheckKeypad
+		brne colloopContinue3
+		jmp startCheckKeypad
+	colloopContinue3:
 		sts PORTL, cmask
 		ldi temp1, 0xFF
 	delayCheck:
@@ -1138,6 +1341,13 @@ startCheckKeyPad:
 	; * -> 0X0E
 	; # -> 0X0F
 	convert:
+	; KEYPAD INPUT DETECTED, TURN ON BACKLIGHT, RESET COUNTER
+	turnOnBacklight:
+		enable_mot_light 0
+		clear FiveSecondCounter
+		ldi temp1, 1
+		mov enableTimer5, temp1
+
 		cpi col, 3
 		breq letters
 		cpi row, 3
@@ -1279,6 +1489,7 @@ inventoryCountEnd:
 	pop temp1
 	ret
 
+; INPUT: KEYPADINPUT
 ; TAKE 1 AWAY FROM INVENTORYCOUNT
 removeItem:
 	push temp1
